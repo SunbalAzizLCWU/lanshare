@@ -8,9 +8,26 @@ const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const filesList = document.getElementById('filesList');
 const toastContainer = document.getElementById('toastContainer');
+const themeToggle = document.getElementById('themeToggle');
 
 let joined = false;
 let notepadDebounceTimer = null;
+
+function applyTheme(theme) {
+  document.body.classList.toggle('theme-dark', theme === 'dark');
+  localStorage.setItem('localshare-theme', theme);
+  themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+}
+
+function getPreferredTheme() {
+  const savedTheme = localStorage.getItem('localshare-theme');
+
+  if (savedTheme === 'dark' || savedTheme === 'light') {
+    return savedTheme;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 
 function showToast(message) {
   const toast = document.createElement('div');
@@ -136,6 +153,13 @@ function handleFiles(fileList) {
 function setDragState(active) {
   dropZone.classList.toggle('dragover', active);
 }
+
+applyTheme(getPreferredTheme());
+
+themeToggle.addEventListener('click', () => {
+  const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
+  applyTheme(nextTheme);
+});
 
 joinBtn.addEventListener('click', joinNetwork);
 

@@ -11,16 +11,31 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <h1>LocalShare</h1>
-      <div class="join-controls">
-        <input id="deviceNameInput" type="text" placeholder="Your device name" autocomplete="nickname">
-        <button id="joinBtn" type="button">Join</button>
+      <div class="brand-lockup">
+        <div class="brand-mark">LS</div>
+        <div>
+          <h1>LocalShare</h1>
+          <p>Private sharing for your local network</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="icon-button" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <span class="theme-icon theme-icon-sun" aria-hidden="true">☀</span>
+          <span class="theme-icon theme-icon-moon" aria-hidden="true">☾</span>
+        </button>
+        <div class="join-controls">
+          <input id="deviceNameInput" type="text" placeholder="Your device name" autocomplete="nickname">
+          <button id="joinBtn" type="button">Join</button>
+        </div>
       </div>
     </header>
 
     <div class="layout">
       <aside id="devicesPanel" class="panel sidebar">
-        <h2>On this network</h2>
+        <div class="panel-heading">
+          <h2>On this network</h2>
+          <span class="panel-subtitle">Live presence</span>
+        </div>
         <ul id="devicesList"></ul>
         <figure class="qr-block">
           <img id="qrCode" src="/qr" alt="QR code to join LocalShare">
@@ -30,12 +45,18 @@
 
       <main class="content">
         <section class="panel notepad-panel">
-          <h2>Shared Notepad</h2>
+          <div class="panel-heading">
+            <h2>Shared Notepad</h2>
+            <span class="panel-subtitle">Realtime across every connected device</span>
+          </div>
           <textarea id="notepad" placeholder="Type here. Everyone on this network sees this in real time."></textarea>
         </section>
 
         <section class="panel files-panel">
-          <h2>Shared Files</h2>
+          <div class="panel-heading">
+            <h2>Shared Files</h2>
+            <span class="panel-subtitle">Drag, drop, and download</span>
+          </div>
           <div id="dropZone">Drag files here or click to upload</div>
           <input type="file" id="fileInput" multiple hidden>
           <ul id="filesList"></ul>

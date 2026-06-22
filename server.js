@@ -39,8 +39,15 @@ const lanIp = getLanIp();
 const lanUrl = `http://${lanIp}:${PORT}`;
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, callback) => {
-    callback(null, uploadsDir);
+  destination: (req, _file, callback) => {
+    try {
+      const roomId = getRequestIP(req);
+      const roomUploadsDir = getRoomUploadsDir(roomId);
+      fs.mkdirSync(roomUploadsDir, { recursive: true });
+      callback(null, roomUploadsDir);
+    } catch (error) {
+      callback(error);
+    }
   },
   filename: (_req, file, callback) => {
     callback(null, `${Date.now()}-${file.originalname}`);
@@ -49,28 +56,95 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-const devices = new Map();
+const rooms = new Map();
+
+function normalizeIp(ip) {
+  if (!ip) {
+    return 'unknown';
+  }
+
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+}
+
+function getRequestIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const rawIp = forwarded ? forwarded.split(',')[0].trim() : req.ip || req.socket?.remoteAddress;
+  return normalizeIp(rawIp);
+}
+
+function getSocketIP(socket) {
+  const forwarded = socket.handshake.headers['x-forwarded-for'];
+  const rawIp = forwarded ? forwarded.split(',')[0].trim() : socket.handshake.address;
+  return normalizeIp(rawIp);
+}
+
+function getRoomUploadsDir(roomId) {
+  return path.join(uploadsDir, roomId);
+}
+
+function getRoom(roomId) {
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, {
+      devices: new Map(),
+    });
+  }
+
+  return rooms.get(roomId);
+}
+
+function deleteRoomIfEmpty(roomId) {
+  const room = rooms.get(roomId);
+
+  if (!room || room.devices.size > 0) {
+    return;
+  }
+
+  rooms.delete(roomId);
+}
 
 function cleanupUploads() {
   try {
-    const files = fs.readdirSync(uploadsDir);
     const cutoffTime = Date.now() - (24 * 60 * 60 * 1000);
 
-    for (const fileName of files) {
-      if (fileName === '.gitkeep') {
+    const roomDirectories = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+
+    for (const roomDirectory of roomDirectories) {
+      if (roomDirectory === '.gitkeep') {
         continue;
       }
 
-      const filePath = path.join(uploadsDir, fileName);
+      const roomPath = path.join(uploadsDir, roomDirectory);
+      let stats;
 
       try {
-        const stats = fs.statSync(filePath);
-
-        if (stats.isFile() && stats.mtimeMs < cutoffTime) {
-          fs.unlinkSync(filePath);
-        }
+        stats = fs.statSync(roomPath);
       } catch (error) {
-        console.error(`Failed to clean up ${fileName}:`, error);
+        console.error(`Failed to inspect ${roomDirectory}:`, error);
+        continue;
+      }
+
+      if (!stats.isDirectory()) {
+        continue;
+      }
+
+      const files = fs.readdirSync(roomPath);
+
+      for (const fileName of files) {
+        if (fileName === '.gitkeep') {
+          continue;
+        }
+
+        const filePath = path.join(roomPath, fileName);
+
+        try {
+          const fileStats = fs.statSync(filePath);
+
+          if (fileStats.isFile() && fileStats.mtimeMs < cutoffTime) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (error) {
+          console.error(`Failed to clean up ${fileName}:`, error);
+        }
       }
     }
   } catch (error) {
@@ -78,10 +152,16 @@ function cleanupUploads() {
   }
 }
 
-function broadcastDevices() {
-  io.emit(
+function broadcastDevices(roomId) {
+  const room = rooms.get(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  io.to(roomId).emit(
     'devices-update',
-    Array.from(devices.entries()).map(([id, name]) => ({ id, name }))
+    Array.from(room.devices.entries()).map(([id, name]) => ({ id, name }))
   );
 }
 
@@ -97,16 +177,20 @@ app.post('/upload', (req, res) => {
           return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        const roomId = getRequestIP(req);
+        const room = getRoom(roomId);
+        const uploadedAt = new Date().toISOString();
+
         const fileInfo = {
           name: req.file.originalname,
           size: req.file.size,
           type: req.file.mimetype,
           uploadedBy: req.body.uploadedBy || req.body.deviceName || 'Unknown',
-          time: new Date().toISOString(),
+          time: uploadedAt,
           url: `/uploads/${encodeURIComponent(req.file.filename)}`,
         };
 
-        io.emit('new-file', fileInfo);
+        io.to(roomId).emit('new-file', fileInfo);
         return res.status(200).json(fileInfo);
       } catch (err) {
         return res.status(500).json({ error: err.message || 'Upload failed' });
@@ -119,8 +203,9 @@ app.post('/upload', (req, res) => {
 
 app.get('/uploads/:filename', (req, res) => {
   try {
+    const roomId = getRequestIP(req);
     const filename = path.basename(req.params.filename);
-    const filePath = path.join(uploadsDir, filename);
+    const filePath = path.join(getRoomUploadsDir(roomId), filename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Not found' });
@@ -147,18 +232,29 @@ app.get('/qr', async (_req, res) => {
 });
 
 io.on('connection', (socket) => {
+  const roomId = getSocketIP(socket);
+
   socket.on('join', (deviceName) => {
-    devices.set(socket.id, deviceName || 'Unknown');
-    broadcastDevices();
+    const room = getRoom(roomId);
+    room.devices.set(socket.id, deviceName || 'Unknown');
+    socket.data.roomId = roomId;
+    socket.join(roomId);
+    broadcastDevices(roomId);
   });
 
   socket.on('notepad-update', (text) => {
-    socket.broadcast.emit('notepad-update', text);
+    socket.to(roomId).emit('notepad-update', text);
   });
 
   socket.on('disconnect', () => {
-    devices.delete(socket.id);
-    broadcastDevices();
+    const activeRoomId = socket.data.roomId || roomId;
+    const room = rooms.get(activeRoomId);
+
+    if (room) {
+      room.devices.delete(socket.id);
+      broadcastDevices(activeRoomId);
+      deleteRoomIfEmpty(activeRoomId);
+    }
   });
 });
 
