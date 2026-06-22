@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalShare</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <h1>LocalShare</h1>
+      <div class="join-controls">
+        <input id="deviceNameInput" type="text" placeholder="Your device name" autocomplete="nickname">
+        <button id="joinBtn" type="button">Join</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside id="devicesPanel" class="panel sidebar">
+        <h2>On this network</h2>
+        <ul id="devicesList"></ul>
+        <figure class="qr-block">
+          <img id="qrCode" src="/qr" alt="QR code to join LocalShare">
+          <figcaption>Scan to join from phone</figcaption>
+        </figure>
+      </aside>
+
+      <main class="content">
+        <section class="panel notepad-panel">
+          <h2>Shared Notepad</h2>
+          <textarea id="notepad" placeholder="Type here. Everyone on this network sees this in real time."></textarea>
+        </section>
+
+        <section class="panel files-panel">
+          <h2>Shared Files</h2>
+          <div id="dropZone">Drag files here or click to upload</div>
+          <input type="file" id="fileInput" multiple hidden>
+          <ul id="filesList"></ul>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

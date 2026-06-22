@@ -1,0 +1,15 @@
+{
+  "name": "localshare",
+  "version": "1.0.0",
+  "description": "LocalShare LAN file and text sharing app backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  }
+}
