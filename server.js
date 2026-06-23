@@ -104,7 +104,7 @@ function deleteRoomIfEmpty(roomId) {
 
 function cleanupUploads() {
   try {
-    const cutoffTime = Date.now() - (24 * 60 * 60 * 1000);
+    const cutoffTime = Date.now() - (60 * 60 * 1000);
 
     const roomDirectories = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
 
