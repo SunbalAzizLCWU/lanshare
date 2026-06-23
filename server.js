@@ -267,5 +267,5 @@ app.use((_req, res) => {
 server.listen(PORT, () => {
   console.log(`LocalShare running at ${lanUrl}`);
   cleanupUploads();
-  setInterval(cleanupUploads, 60 * 60 * 1000);
+  setInterval(cleanupUploads, 20 * 60 * 1000);
 });
